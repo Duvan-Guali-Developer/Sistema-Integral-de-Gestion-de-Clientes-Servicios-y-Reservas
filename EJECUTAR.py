@@ -1,0 +1,279 @@
+"""
+EJECUTAR.py
+Interfaz gráfica (Tkinter) del Software FJ.
+Ejecución:
+    python EJECUTAR.py
+"""
+
+import tkinter as tk
+from tkinter import messagebox, ttk
+
+from fj import ARCHIVO_LOG, SistemaFJ, logger
+
+"""Tema del Software"""
+
+COLORES = {
+    "fondo": "#1e1f22",      
+    "superficie": "#2b2d31",  
+    "campo": "#383a40",       
+    "borde": "#4a4d55",
+    "texto": "#e8e8ea",
+    "texto_suave": "#a3a6ad",
+    "acento": "#4c8bf5",     
+    "acento_hover": "#6a9ef7",
+    "exito": "#6fd38f",
+    "error": "#ff6b6b",
+}
+
+class AppSoftwareFJ(tk.Tk):
+    """Ventana principal"""
+
+    def __init__(self):
+        super().__init__()
+        self.sistema = SistemaFJ()
+        self.title("Software FJ")
+        self.geometry("1050x650")
+        self.minsize(900, 560)
+
+        self._aplicar_tema_oscuro()
+
+        self._crear_encabezado()
+        self.pestanas = ttk.Notebook(self)
+        self.pestanas.pack(fill="both", expand=True, padx=10, pady=(0, 6))
+        self._crear_pestana_clientes()
+        self._crear_pestana_servicios()
+        self._crear_pestana_reservas()
+        self._crear_pestana_log()
+        self._crear_barra_estado()
+        self.refrescar()
+
+    """Tema global oscuro"""
+
+    def _aplicar_tema_oscuro(self):
+        c = COLORES
+        self.configure(bg=c["fondo"])
+        self.option_add("*Background", c["superficie"])
+        self.option_add("*Foreground", c["texto"])
+        self.option_add("*TCombobox*Listbox.background", c["campo"])
+        self.option_add("*TCombobox*Listbox.foreground", c["texto"])
+        self.option_add("*TCombobox*Listbox.selectBackground", c["acento"])
+
+        estilo = ttk.Style(self)
+        estilo.theme_use("clam") 
+        estilo.configure(".", background=c["fondo"], foreground=c["texto"],
+                         bordercolor=c["borde"], lightcolor=c["superficie"],
+                         darkcolor=c["superficie"], troughcolor=c["fondo"],
+                         fieldbackground=c["campo"], insertcolor=c["texto"],
+                         selectbackground=c["acento"], selectforeground="#ffffff",
+                         font=("Segoe UI", 10))
+
+        estilo.configure("TFrame", background=c["fondo"])
+        estilo.configure("TLabel", background=c["fondo"], foreground=c["texto"])
+        estilo.configure("Titulo.TLabel", font=("Segoe UI", 15, "bold"))
+        estilo.configure("Sub.TLabel", foreground=c["texto_suave"])
+        estilo.configure("TLabelframe", background=c["fondo"], bordercolor=c["borde"])
+        estilo.configure("TLabelframe.Label", background=c["fondo"], foreground=c["texto_suave"])
+
+        estilo.configure("TEntry", fieldbackground=c["campo"], foreground=c["texto"],
+                         insertcolor=c["texto"], bordercolor=c["borde"], padding=4)
+        estilo.map("TEntry", bordercolor=[("focus", c["acento"])],
+                   lightcolor=[("focus", c["acento"])])
+
+        estilo.configure("TButton", background=c["superficie"], foreground=c["texto"],
+                         bordercolor=c["borde"], focuscolor=c["superficie"], padding=6)
+        estilo.map("TButton", background=[("pressed", c["campo"]), ("active", c["campo"])])
+        estilo.configure("Accion.TButton", background=c["acento"], foreground="#ffffff",
+                         bordercolor=c["acento"], focuscolor=c["acento"],
+                         font=("Segoe UI", 10, "bold"))
+        estilo.map("Accion.TButton", background=[("pressed", c["acento"]), ("active", c["acento_hover"])])
+
+        estilo.configure("TNotebook", background=c["fondo"], bordercolor=c["borde"])
+        estilo.configure("TNotebook.Tab", background=c["superficie"], foreground=c["texto_suave"],
+                         bordercolor=c["borde"], padding=(12, 6))
+        estilo.map("TNotebook.Tab",
+                   background=[("selected", c["fondo"])],
+                   foreground=[("selected", c["texto"])],
+                   lightcolor=[("selected", c["acento"])])
+
+        estilo.configure("Treeview", background=c["superficie"], fieldbackground=c["superficie"],
+                         foreground=c["texto"], bordercolor=c["borde"], rowheight=26)
+        estilo.map("Treeview", background=[("selected", c["acento"])],
+                   foreground=[("selected", "#ffffff")])
+        estilo.configure("Treeview.Heading", background=c["campo"], foreground=c["texto"],
+                         bordercolor=c["borde"], relief="flat", font=("Segoe UI", 10, "bold"))
+        estilo.map("Treeview.Heading", background=[("active", c["borde"])])
+
+        estilo.configure("Vertical.TScrollbar", background=c["campo"], troughcolor=c["fondo"],
+                         bordercolor=c["fondo"], arrowcolor=c["texto_suave"])
+        estilo.map("Vertical.TScrollbar", background=[("active", c["borde"])])
+
+    """"Un error muestra un aviso y la app sigue abierta"""
+    
+    def ejecutar(self, accion: str, funcion, *args, **kwargs):
+        try:
+            resultado = funcion(*args, **kwargs)
+        except (ValueError, TypeError) as error:
+            logger.error("%s falló: %s", accion, error)
+            self.mostrar_estado(f"✗ No se pudo {accion}: {error}", error=True)
+            messagebox.showerror(f"No se pudo {accion}", str(error), parent=self)
+            return None
+        finally:
+            self.refrescar()
+        return resultado
+
+    def _crear_encabezado(self):
+        marco = ttk.Frame(self, padding=(12, 10))
+        marco.pack(fill="x")
+        textos = ttk.Frame(marco)
+        textos.pack(side="left")
+        ttk.Label(textos, text="Software FJ", style="Titulo.TLabel").pack(anchor="w")
+        ttk.Label(textos, text="Sistema de gestión de clientes, servicios y reservas",
+                  style="Sub.TLabel").pack(anchor="w")
+        self.lbl_resumen = ttk.Label(marco, style="Sub.TLabel")
+        self.lbl_resumen.pack(side="right")
+
+    def _crear_barra_estado(self):
+        self.lbl_estado = tk.Label(self, anchor="w", padx=12, pady=6,
+                                   bg=COLORES["superficie"], fg=COLORES["texto_suave"])
+        self.lbl_estado.pack(fill="x", side="bottom")
+
+    def mostrar_estado(self, texto: str, error: bool = False):
+        self.lbl_estado.config(text=texto, fg=COLORES["error"] if error else COLORES["exito"])
+
+    @staticmethod
+    def _tabla(padre, columnas):
+
+        """Crea una tabla con barra de desplazamiento. columnas: [(id, título, ancho)]"""
+
+        marco = ttk.Frame(padre)
+        tabla = ttk.Treeview(marco, columns=[c[0] for c in columnas], show="headings",
+                             selectmode="browse")
+        for cid, titulo, ancho in columnas:
+            tabla.heading(cid, text=titulo)
+            tabla.column(cid, width=ancho, anchor="w")
+        barra = ttk.Scrollbar(marco, orient="vertical", command=tabla.yview)
+        tabla.configure(yscrollcommand=barra.set)
+        tabla.pack(side="left", fill="both", expand=True)
+        barra.pack(side="right", fill="y")
+        return marco, tabla
+
+    def _campo(self, padre, fila, etiqueta, ancho=28, solo_numeros=False, mayusculas=False):
+        """
+        Crea una etiqueta con su casilla de texto, solo permite parametros establecidos en desarrollo
+        """
+        ttk.Label(padre, text=etiqueta).grid(row=fila, column=0, sticky="w", pady=3)
+        variable = tk.StringVar()
+        entrada = ttk.Entry(padre, textvariable=variable, width=ancho)
+        entrada.grid(row=fila, column=1, sticky="ew", pady=3)
+
+        if solo_numeros:
+       
+            solo_digitos = self.register(lambda texto: texto == "" or texto.isdigit())
+            entrada.configure(validate="key", validatecommand=(solo_digitos, "%P"))
+
+        if mayusculas:
+            def a_mayusculas(*_):
+                texto = variable.get()
+                if texto != texto.upper():
+                    posicion = entrada.index("insert")
+                    variable.set(texto.upper())
+                    entrada.icursor(posicion)
+            variable.trace_add("write", a_mayusculas)
+
+        return variable
+
+    """"Pestaña clientes"""
+    def _crear_pestana_clientes(self):
+        pestana = ttk.Frame(self.pestanas, padding=10)
+        self.pestanas.add(pestana, text="  Clientes  ")
+
+        formulario = ttk.LabelFrame(pestana, text="Nuevo cliente", padding=10)
+        formulario.pack(side="left", fill="y", padx=(0, 10))
+        self.cli_doc = self._campo(formulario, 0, "Documento", solo_numeros=True)
+        self.cli_nombre = self._campo(formulario, 1, "Nombre completo", mayusculas=True)
+        self.cli_email = self._campo(formulario, 2, "Email")
+        self.cli_tel = self._campo(formulario, 3, "Teléfono", solo_numeros=True)
+        ttk.Button(formulario, text="Registrar cliente", style="Accion.TButton",
+                   command=self.registrar_cliente).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(12, 4))
+        ttk.Button(formulario, text="Limpiar", command=self._limpiar_cliente)\
+            .grid(row=5, column=0, columnspan=2, sticky="ew")
+
+        marco, self.tabla_clientes = self._tabla(pestana, [
+            ("nombre", "Nombre", 200), ("doc", "Documento", 130),
+            ("email", "Email", 240), ("tel", "Teléfono", 140),
+        ])
+        marco.pack(side="left", fill="both", expand=True)
+
+    def registrar_cliente(self):
+        cliente = self.ejecutar("registrar el cliente", self.sistema.registrar_cliente,
+                                self.cli_doc.get(), self.cli_nombre.get(),
+                                self.cli_email.get(), self.cli_tel.get())
+        if cliente:
+            self.mostrar_estado(f"Cliente registrado: {cliente.describir()}")
+            self._limpiar_cliente()
+
+    def _limpiar_cliente(self):
+        for variable in (self.cli_doc, self.cli_nombre, self.cli_email, self.cli_tel):
+            variable.set("")
+
+    """"Pestañas SERVICIOS y RESERVAS"""
+
+    def _crear_pestana_servicios(self):
+        pestana = ttk.Frame(self.pestanas, padding=10)
+        self.pestanas.add(pestana, text="  Servicios  ")
+
+    def _crear_pestana_reservas(self):
+        pestana = ttk.Frame(self.pestanas, padding=10)
+        self.pestanas.add(pestana, text="  Reservas  ")
+
+    """"Registros"""""
+
+    def _crear_pestana_log(self):
+        pestana = ttk.Frame(self.pestanas, padding=10)
+        self.pestanas.add(pestana, text="  Registro de eventos  ")
+        barra = ttk.Frame(pestana)
+        barra.pack(fill="x", pady=(0, 6))
+        ttk.Label(barra, text=f"Archivo: {ARCHIVO_LOG}", style="Sub.TLabel").pack(side="left")
+        ttk.Button(barra, text="Actualizar", command=self.cargar_log).pack(side="right")
+
+        marco = ttk.Frame(pestana)
+        marco.pack(fill="both", expand=True)
+        self.txt_log = tk.Text(marco, wrap="none", font=("Consolas", 9), state="disabled",
+                               bg=COLORES["superficie"], fg=COLORES["texto"],
+                               insertbackground=COLORES["texto"], relief="flat",
+                               highlightthickness=1, highlightbackground=COLORES["borde"],
+                               padx=8, pady=6)
+        barra_y = ttk.Scrollbar(marco, orient="vertical", command=self.txt_log.yview)
+        self.txt_log.configure(yscrollcommand=barra_y.set)
+        self.txt_log.pack(side="left", fill="both", expand=True)
+        barra_y.pack(side="right", fill="y")
+        self.txt_log.tag_configure("ERROR", foreground=COLORES["error"])
+        self.txt_log.tag_configure("INFO", foreground=COLORES["exito"])
+
+    def cargar_log(self):
+        try:
+            with open(ARCHIVO_LOG, encoding="utf-8") as archivo:
+                lineas = archivo.readlines()[-400:]
+        except OSError:
+            lineas = []
+        self.txt_log.config(state="normal")
+        self.txt_log.delete("1.0", "end")
+        for linea in lineas:
+            if "| DEBUG" in linea:
+                continue
+            nivel = "ERROR" if "| ERROR" in linea else "INFO"
+            self.txt_log.insert("end", linea, nivel)
+        self.txt_log.config(state="disabled")
+        self.txt_log.see("end")
+
+    def refrescar(self):
+        self.tabla_clientes.delete(*self.tabla_clientes.get_children())
+        for c in self.sistema.clientes:
+            self.tabla_clientes.insert("", "end", values=(c.nombre, c.documento, c.email, c.telefono))
+
+        self.lbl_resumen.config(text=f"Clientes: {len(self.sistema.clientes)}")
+        self.cargar_log()
+
+
+if __name__ == "__main__":
+    AppSoftwareFJ().mainloop()
