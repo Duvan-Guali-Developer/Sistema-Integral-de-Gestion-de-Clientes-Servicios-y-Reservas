@@ -10,6 +10,11 @@ Asesoria
 from abc import ABC, abstractmethod
 
 
+def pesos(valor):
+    """Formatea un valor en pesos colombianos"""
+    return f"${valor:,.0f}".replace(",", ".")
+
+
 class ServicioError(ValueError):
     """Error propio para problemas con los servicios"""
     pass
@@ -68,7 +73,7 @@ class Servicio(ABC):
 
     def __str__(self):
         estado = "Disponible" if self._disponible else "No disponible"
-        return f"[{self._codigo}] {self._nombre} - ${self._precio_base:,.0f}/h ({estado})"
+        return f"[{self._codigo}] {self._nombre} - {pesos(self._precio_base)}/h ({estado})"
 
 
 class ReservaSala(Servicio):
@@ -105,7 +110,7 @@ class AlquilerEquipo(Servicio):
         return self._aplicar_descuento(costo, descuento)
 
     def describir(self):
-        return f"Alquiler de {self._tipo_equipo} (depósito: ${self._deposito:,.0f})."
+        return f"Alquiler de {self._tipo_equipo} (depósito: {pesos(self._deposito)})."
 
 
 class Asesoria(Servicio):
@@ -124,25 +129,3 @@ class Asesoria(Servicio):
 
     def describir(self):
         return f"Asesoría en {self._especialidad}."
-
-
-if __name__ == "__main__":
-    # Prueba rápida del módulo
-    servicios = []
-    try:
-        servicios.append(ReservaSala("S01", "Sala Andes", 80000, 25))
-        servicios.append(AlquilerEquipo("E01", "Video beam", 30000, "video beam", 20000))
-        servicios.append(Asesoria("A01", "Asesoría Python", 120000, "programación en Python"))
-    except ServicioError as e:
-        print(f"Error al crear servicio: {e}")
-
-    for s in servicios:
-        print(s)
-        print("  ", s.describir())
-        print("   Costo 3 horas con 10% de descuento:", f"${s.calcular_costo(3, 0.1):,.0f}")
-
-    # Prueba de error controlado
-    try:
-        Asesoria("A02", "Asesoría inválida", -5000, "nada")
-    except ServicioError as e:
-        print(f"Error esperado: {e}")
