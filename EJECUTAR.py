@@ -1,6 +1,6 @@
 """
 EJECUTAR.py
-Interfaz gráfica (Tkinter) del Software FJ.
+Interfaz gráfica del Software FJ
 Ejecución:
     python EJECUTAR.py
 """
@@ -13,17 +13,26 @@ from fj import ARCHIVO_LOG, TIPOS_SERVICIO, SistemaFJ, logger
 """Tema del Software"""
 
 COLORES = {
-    "fondo": "#1e1f22",      
-    "superficie": "#2b2d31",  
-    "campo": "#383a40",       
-    "borde": "#4a4d55",
-    "texto": "#e8e8ea",
-    "texto_suave": "#a3a6ad",
-    "acento": "#4c8bf5",     
-    "acento_hover": "#6a9ef7",
-    "exito": "#6fd38f",
-    "error": "#ff6b6b",
+  
+    "fondo": "#cfd6de",
+    "superficie": "#dde3e9",
+    "campo": "#eef2f6",
+    "borde": "#a7b1bc",
+    "texto": "#1c2530",
+    "texto_suave": "#4a5664",
+    "acento": "#34404d",
+    "acento_hover": "#46535f",
+    "exito": "#1e7a3c",
+    "error": "#b42318",
+    "tarjeta": "#bcc5cf",
+    "tarjeta_borde": "#9aa5b1",
+    "gris_1": "#1c2530",
+    "gris_2": "#34404d",
+    "gris_3": "#566472",
+    "gris_4": "#7b8896",
 }
+
+SECCIONES = ["Clientes", "Servicios", "Reservas", "Registro"]
 
 class AppSoftwareFJ(tk.Tk):
     """Ventana principal"""
@@ -35,19 +44,23 @@ class AppSoftwareFJ(tk.Tk):
         self.geometry("1050x650")
         self.minsize(900, 560)
 
+        self.ultimo_calculo = None
+
         self._aplicar_tema_oscuro()
 
         self._crear_encabezado()
-        self.pestanas = ttk.Notebook(self)
-        self.pestanas.pack(fill="both", expand=True, padx=10, pady=(0, 6))
+        self._crear_tarjetas()
+        self.pestanas = ttk.Notebook(self, style="Oculto.TNotebook")
+        self.pestanas.pack(fill="both", expand=True, padx=12, pady=(0, 6))
         self._crear_pestana_clientes()
         self._crear_pestana_servicios()
         self._crear_pestana_reservas()
         self._crear_pestana_log()
         self._crear_barra_estado()
+        self.mostrar_seccion("Clientes")
         self.refrescar()
 
-    """Tema global oscuro"""
+    """Tema global"""
 
     def _aplicar_tema_oscuro(self):
         c = COLORES
@@ -103,6 +116,23 @@ class AppSoftwareFJ(tk.Tk):
                          bordercolor=c["borde"], relief="flat", font=("Segoe UI", 10, "bold"))
         estilo.map("Treeview.Heading", background=[("active", c["borde"])])
 
+    
+        estilo.configure("TCombobox", fieldbackground=c["campo"], background=c["campo"],
+                         foreground=c["texto"], arrowcolor=c["texto"], bordercolor=c["borde"],
+                         lightcolor=c["campo"], darkcolor=c["campo"], padding=4)
+        estilo.map("TCombobox",
+                   fieldbackground=[("readonly", c["campo"]), ("disabled", c["campo"])],
+                   background=[("readonly", c["campo"]), ("active", c["borde"])],
+                   foreground=[("readonly", c["texto"]), ("disabled", c["texto_suave"])],
+                   selectbackground=[("readonly", c["campo"])],
+                   selectforeground=[("readonly", c["texto"])],
+                   bordercolor=[("focus", c["texto_suave"])],
+                   arrowcolor=[("disabled", c["texto_suave"])])
+        self.option_add("*TCombobox*Listbox.selectForeground", "#ffffff")
+
+        estilo.layout("Oculto.TNotebook.Tab", [])
+        estilo.configure("Oculto.TNotebook", background=c["fondo"], borderwidth=0)
+
         estilo.configure("Vertical.TScrollbar", background=c["campo"], troughcolor=c["fondo"],
                          bordercolor=c["fondo"], arrowcolor=c["texto_suave"])
         estilo.map("Vertical.TScrollbar", background=[("active", c["borde"])])
@@ -122,15 +152,81 @@ class AppSoftwareFJ(tk.Tk):
         return resultado
 
     def _crear_encabezado(self):
-        marco = ttk.Frame(self, padding=(12, 10))
+        """Encabezado: menú a la izquierda, título + sección actual a la derecha."""
+        c = COLORES
+        marco = tk.Frame(self, bg=c["fondo"], padx=14, pady=10)
         marco.pack(fill="x")
-        textos = ttk.Frame(marco)
-        textos.pack(side="left")
-        ttk.Label(textos, text="Software FJ", style="Titulo.TLabel").pack(anchor="w")
-        ttk.Label(textos, text="Sistema de gestión de clientes, servicios y reservas",
-                  style="Sub.TLabel").pack(anchor="w")
-        self.lbl_resumen = ttk.Label(marco, style="Sub.TLabel")
-        self.lbl_resumen.pack(side="right")
+        tk.Frame(self, bg=c["tarjeta_borde"], height=1).pack(fill="x")
+
+        titulo = tk.Frame(marco, bg=c["fondo"])
+        titulo.pack(side="right")
+        tk.Label(titulo, text="Software FJ", bg=c["fondo"], fg=c["texto"],
+                 font=("Segoe UI", 15, "bold")).pack(side="left")
+        self.lbl_seccion = tk.Label(titulo, text="", bg=c["fondo"], fg=c["gris_3"],
+                                    font=("Segoe UI", 11))
+        self.lbl_seccion.pack(side="left", padx=(6, 0), pady=(4, 0))
+
+        menu = tk.Frame(marco, bg=c["fondo"])
+        menu.pack(side="left")
+        self.menu_items = {}
+        for nombre in SECCIONES:
+            item = tk.Frame(menu, bg=c["fondo"], cursor="hand2")
+            item.pack(side="left", padx=(0, 20))
+            texto = tk.Label(item, text=nombre, bg=c["fondo"], fg=c["gris_2"],
+                             font=("Segoe UI", 10), cursor="hand2")
+            texto.pack()
+            linea = tk.Frame(item, height=2, bg=c["fondo"])
+            linea.pack(fill="x", pady=(3, 0))
+            for w in (item, texto):
+                w.bind("<Button-1>", lambda _e, n=nombre: self.mostrar_seccion(n))
+                w.bind("<Enter>", lambda _e, n=nombre: self._hover_menu(n, True))
+                w.bind("<Leave>", lambda _e, n=nombre: self._hover_menu(n, False))
+            self.menu_items[nombre] = (texto, linea)
+
+    def mostrar_seccion(self, nombre: str):
+        self.seccion_actual = nombre
+        self.pestanas.select(SECCIONES.index(nombre))
+        self.lbl_seccion.config(text=f"/  {nombre}")
+        for n, (texto, linea) in self.menu_items.items():
+            activo = n == nombre
+            texto.config(fg=COLORES["gris_1"] if activo else COLORES["gris_2"],
+                         font=("Segoe UI", 10, "bold" if activo else "normal"))
+            linea.config(bg=COLORES["gris_1"] if activo else COLORES["fondo"])
+        if nombre == "Registro":
+            self.cargar_log()
+
+    def _hover_menu(self, nombre: str, dentro: bool):
+        if nombre == getattr(self, "seccion_actual", None):
+            return
+        texto, _ = self.menu_items[nombre]
+        texto.config(fg=COLORES["gris_1"] if dentro else COLORES["gris_2"])
+
+    def _crear_tarjetas(self):
+        """Fila de tarjetas con los totales del sistema"""
+        c = COLORES
+        fila = tk.Frame(self, bg=c["fondo"], padx=12, pady=6)
+        fila.pack(fill="x")
+        datos = [
+            ("clientes", "Clientes", c["gris_1"]),
+            ("servicios", "Servicios", c["gris_2"]),
+            ("reservas", "Reservas", c["gris_3"]),
+            ("calculo", "Último cálculo", c["gris_4"]),
+        ]
+        self.tarjetas = {}
+        for i, (clave, titulo, franja) in enumerate(datos):
+            tarjeta = tk.Frame(fila, bg=c["tarjeta"], highlightthickness=1,
+                               highlightbackground=c["tarjeta_borde"])
+            tarjeta.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 10, 0))
+            fila.columnconfigure(i, weight=1, uniform="tarjetas")
+            tk.Frame(tarjeta, bg=franja, width=3).pack(side="left", fill="y")
+            cuerpo = tk.Frame(tarjeta, bg=c["tarjeta"], padx=10, pady=3)
+            cuerpo.pack(side="left", fill="both", expand=True)
+            tk.Label(cuerpo, text=titulo.upper(), bg=c["tarjeta"], fg=c["gris_3"],
+                     font=("Segoe UI", 7, "bold")).pack(anchor="w")
+            valor = tk.Label(cuerpo, text="0", bg=c["tarjeta"], fg=c["gris_1"],
+                             font=("Segoe UI", 13, "bold"))
+            valor.pack(anchor="w")
+            self.tarjetas[clave] = valor
 
     def _crear_barra_estado(self):
         self.lbl_estado = tk.Label(self, anchor="w", padx=12, pady=6,
@@ -143,7 +239,7 @@ class AppSoftwareFJ(tk.Tk):
     @staticmethod
     def _tabla(padre, columnas):
 
-        """Crea una tabla con barra de desplazamiento. columnas: [(id, título, ancho)]"""
+        """Crea una tabla con barra de desplazamiento"""
 
         marco = ttk.Frame(padre)
         tabla = ttk.Treeview(marco, columns=[c[0] for c in columnas], show="headings",
@@ -184,7 +280,7 @@ class AppSoftwareFJ(tk.Tk):
 
     """"Pestaña clientes"""
     def _crear_pestana_clientes(self):
-        pestana = ttk.Frame(self.pestanas, padding=10)
+        pestana = ttk.Frame(self.pestanas, padding=(0, 4))
         self.pestanas.add(pestana, text="  Clientes  ")
 
         formulario = ttk.LabelFrame(pestana, text="Nuevo cliente", padding=10)
@@ -225,18 +321,18 @@ class AppSoftwareFJ(tk.Tk):
     }
 
     def _crear_pestana_servicios(self):
-        pestana = ttk.Frame(self.pestanas, padding=10)
+        pestana = ttk.Frame(self.pestanas, padding=(0, 4))
         self.pestanas.add(pestana, text="  Servicios  ")
 
         lateral = ttk.Frame(pestana)
         lateral.pack(side="left", fill="y", padx=(0, 10))
 
-        # Formulario para registrar un servicio nuevo
+        
         formulario = ttk.LabelFrame(lateral, text="Nuevo servicio", padding=10)
         formulario.pack(fill="x")
         ttk.Label(formulario, text="Tipo").grid(row=0, column=0, sticky="w", pady=3)
         self.srv_tipo = tk.StringVar(value="Reserva de sala")
-        combo = ttk.Combobox(formulario, textvariable=self.srv_tipo, state="readonly",
+        combo = self.srv_combo = ttk.Combobox(formulario, textvariable=self.srv_tipo, state="readonly",
                              values=list(TIPOS_SERVICIO), width=26)
         combo.grid(row=0, column=1, sticky="ew", pady=3)
         combo.bind("<<ComboboxSelected>>", self._cambiar_etiqueta_detalle)
@@ -253,8 +349,7 @@ class AppSoftwareFJ(tk.Tk):
                                                          sticky="ew", pady=(12, 4))
         ttk.Button(formulario, text="Limpiar", command=self._limpiar_servicio)\
             .grid(row=6, column=0, columnspan=2, sticky="ew")
-
-        # Calculadora de costo para el servicio seleccionado en la tabla
+ 
         calculo = ttk.LabelFrame(lateral, text="Calcular costo (seleccione en la tabla)", padding=10)
         calculo.pack(fill="x", pady=(10, 0))
         self.srv_horas = self._campo(calculo, 0, "Horas", ancho=10, solo_numeros=True)
@@ -269,6 +364,7 @@ class AppSoftwareFJ(tk.Tk):
         marco.pack(side="left", fill="both", expand=True)
 
     def _cambiar_etiqueta_detalle(self, *_):
+        self.srv_combo.selection_clear()  
         self.lbl_detalle.config(text=self.DETALLE_POR_TIPO.get(self.srv_tipo.get(), "Detalle"))
 
     def registrar_servicio(self):
@@ -293,6 +389,8 @@ class AppSoftwareFJ(tk.Tk):
                                   codigo, self.srv_horas.get(), self.srv_descuento.get() or "0")
         if resultado:
             servicio, costo = resultado
+            self.ultimo_calculo = costo
+            self.tarjetas["calculo"].config(text=f"${costo:,.0f}")
             texto = f"{servicio.nombre}: {self.srv_horas.get()} h = ${costo:,.0f}"
             self.mostrar_estado(texto)
             messagebox.showinfo("Costo del servicio", texto, parent=self)
@@ -353,9 +451,11 @@ class AppSoftwareFJ(tk.Tk):
                 s.codigo, s.nombre, nombres_tipo.get(type(s), "-"),
                 f"${s.precio_base:,.0f}", s.describir()))
 
-        self.lbl_resumen.config(
-            text=f"Clientes: {len(self.sistema.clientes)}   ·   Servicios: {len(self.sistema.servicios)}")
-
+        self.tarjetas["clientes"].config(text=str(len(self.sistema.clientes)))
+        self.tarjetas["servicios"].config(text=str(len(self.sistema.servicios)))
+        self.tarjetas["reservas"].config(text=str(len(getattr(self.sistema, "reservas", []))))
+        self.tarjetas["calculo"].config(
+            text="—" if self.ultimo_calculo is None else f"${self.ultimo_calculo:,.0f}")
 
 if __name__ == "__main__":
     AppSoftwareFJ().mainloop()
