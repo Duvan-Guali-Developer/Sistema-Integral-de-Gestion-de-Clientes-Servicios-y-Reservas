@@ -8,7 +8,7 @@ Ejecución:
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from fj import ARCHIVO_LOG, SistemaFJ, logger
+from fj import ARCHIVO_LOG, TIPOS_SERVICIO, SistemaFJ, logger
 
 """Tema del Software"""
 
@@ -218,9 +218,84 @@ class AppSoftwareFJ(tk.Tk):
 
     """"Pestañas SERVICIOS y RESERVAS"""
 
+    DETALLE_POR_TIPO = {
+        "Reserva de sala": "Capacidad (personas)",
+        "Alquiler de equipo": "Tipo de equipo",
+        "Asesoría": "Especialidad",
+    }
+
     def _crear_pestana_servicios(self):
         pestana = ttk.Frame(self.pestanas, padding=10)
         self.pestanas.add(pestana, text="  Servicios  ")
+
+        lateral = ttk.Frame(pestana)
+        lateral.pack(side="left", fill="y", padx=(0, 10))
+
+        # Formulario para registrar un servicio nuevo
+        formulario = ttk.LabelFrame(lateral, text="Nuevo servicio", padding=10)
+        formulario.pack(fill="x")
+        ttk.Label(formulario, text="Tipo").grid(row=0, column=0, sticky="w", pady=3)
+        self.srv_tipo = tk.StringVar(value="Reserva de sala")
+        combo = ttk.Combobox(formulario, textvariable=self.srv_tipo, state="readonly",
+                             values=list(TIPOS_SERVICIO), width=26)
+        combo.grid(row=0, column=1, sticky="ew", pady=3)
+        combo.bind("<<ComboboxSelected>>", self._cambiar_etiqueta_detalle)
+
+        self.srv_codigo = self._campo(formulario, 1, "Código", mayusculas=True)
+        self.srv_nombre = self._campo(formulario, 2, "Nombre")
+        self.srv_precio = self._campo(formulario, 3, "Precio por hora", solo_numeros=True)
+        self.srv_detalle = self._campo(formulario, 4, "Detalle")
+        self.lbl_detalle = formulario.grid_slaves(row=4, column=0)[0]
+        self._cambiar_etiqueta_detalle()
+
+        ttk.Button(formulario, text="Registrar servicio", style="Accion.TButton",
+                   command=self.registrar_servicio).grid(row=5, column=0, columnspan=2,
+                                                         sticky="ew", pady=(12, 4))
+        ttk.Button(formulario, text="Limpiar", command=self._limpiar_servicio)\
+            .grid(row=6, column=0, columnspan=2, sticky="ew")
+
+        # Calculadora de costo para el servicio seleccionado en la tabla
+        calculo = ttk.LabelFrame(lateral, text="Calcular costo (seleccione en la tabla)", padding=10)
+        calculo.pack(fill="x", pady=(10, 0))
+        self.srv_horas = self._campo(calculo, 0, "Horas", ancho=10, solo_numeros=True)
+        self.srv_descuento = self._campo(calculo, 1, "Descuento %", ancho=10, solo_numeros=True)
+        ttk.Button(calculo, text="Calcular", command=self.calcular_costo_servicio)\
+            .grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+
+        marco, self.tabla_servicios = self._tabla(pestana, [
+            ("codigo", "Código", 70), ("nombre", "Nombre", 170), ("tipo", "Tipo", 130),
+            ("precio", "Precio/hora", 100), ("detalle", "Detalle", 230),
+        ])
+        marco.pack(side="left", fill="both", expand=True)
+
+    def _cambiar_etiqueta_detalle(self, *_):
+        self.lbl_detalle.config(text=self.DETALLE_POR_TIPO.get(self.srv_tipo.get(), "Detalle"))
+
+    def registrar_servicio(self):
+        servicio = self.ejecutar("registrar el servicio", self.sistema.registrar_servicio,
+                                 self.srv_tipo.get(), self.srv_codigo.get(), self.srv_nombre.get(),
+                                 self.srv_precio.get(), self.srv_detalle.get())
+        if servicio:
+            self.mostrar_estado(f"Servicio registrado: {servicio}")
+            self._limpiar_servicio()
+
+    def _limpiar_servicio(self):
+        for variable in (self.srv_codigo, self.srv_nombre, self.srv_precio, self.srv_detalle):
+            variable.set("")
+
+    def calcular_costo_servicio(self):
+        seleccion = self.tabla_servicios.selection()
+        if not seleccion:
+            messagebox.showwarning("Calcular costo", "Seleccione un servicio en la tabla.", parent=self)
+            return
+        codigo = self.tabla_servicios.item(seleccion[0], "values")[0]
+        resultado = self.ejecutar("calcular el costo", self.sistema.calcular_costo,
+                                  codigo, self.srv_horas.get(), self.srv_descuento.get() or "0")
+        if resultado:
+            servicio, costo = resultado
+            texto = f"{servicio.nombre}: {self.srv_horas.get()} h = ${costo:,.0f}"
+            self.mostrar_estado(texto)
+            messagebox.showinfo("Costo del servicio", texto, parent=self)
 
     def _crear_pestana_reservas(self):
         pestana = ttk.Frame(self.pestanas, padding=10)
@@ -271,8 +346,15 @@ class AppSoftwareFJ(tk.Tk):
         for c in self.sistema.clientes:
             self.tabla_clientes.insert("", "end", values=(c.nombre, c.documento, c.email, c.telefono))
 
-        self.lbl_resumen.config(text=f"Clientes: {len(self.sistema.clientes)}")
-        self.cargar_log()
+        nombres_tipo = {clase: nombre for nombre, clase in TIPOS_SERVICIO.items()}
+        self.tabla_servicios.delete(*self.tabla_servicios.get_children())
+        for s in self.sistema.servicios:
+            self.tabla_servicios.insert("", "end", values=(
+                s.codigo, s.nombre, nombres_tipo.get(type(s), "-"),
+                f"${s.precio_base:,.0f}", s.describir()))
+
+        self.lbl_resumen.config(
+            text=f"Clientes: {len(self.sistema.clientes)}   ·   Servicios: {len(self.sistema.servicios)}")
 
 
 if __name__ == "__main__":
