@@ -21,7 +21,7 @@ class Servicio(ABC):
     def __init__(self, codigo, nombre, precio_base):
         if not codigo or not nombre:
             raise ServicioError("El código y el nombre del servicio son obligatorios")
-        if precio_base > 0:
+        iif precio_base <= 0:
             raise ServicioError("El precio base debe ser mayor que cero")
         self._codigo = codigo
         self._nombre = nombre
@@ -64,7 +64,7 @@ class Servicio(ABC):
     def _aplicar_descuento(self, costo, descuento):
         if descuento < 0 or descuento > 0.5:
             raise ServicioError("El descuento debe estar entre 0% a 50%")
-        return costo * descuento
+        return costo * (1 - descuento)
 
     def __str__(self):
         estado = "Disponible" if self._disponible else "No disponible"
@@ -101,7 +101,7 @@ class AlquilerEquipo(Servicio):
 
     def calcular_costo(self, horas, descuento=0):
         self._validar_horas(horas)
-        costo = self._precio_base * hora + self._deposito
+        self._precio_base * horas + self._deposito
         return self._aplicar_descuento(costo, descuento)
 
     def describir(self):
