@@ -5,7 +5,7 @@ sistema.py
 
 from .cliente import Cliente
 from .registro import logger
-from .servicio import AlquilerEquipo, Asesoria, ReservaSala, Servicio, ServicioError
+from .servicio import AlquilerEquipo, Asesoria, ReservaSala, Servicio, ServicioError, pesos
 
 TIPOS_SERVICIO = {
     "Reserva de sala": ReservaSala,
@@ -22,16 +22,6 @@ class SistemaFJ:
         self.clientes: list = []
         self.servicios: list = []
         logger.info("=== Sistema %s iniciado ===", empresa)
-        self._cargar_servicios_iniciales()
-
-    def _cargar_servicios_iniciales(self):
-        """Servicios de ejemplo para que el catálogo no arranque vacío."""
-        try:
-            self.servicios.append(ReservaSala("S01", "Sala Andes", 80000, 25))
-            self.servicios.append(AlquilerEquipo("E01", "Video beam", 30000, "video beam", 20000))
-            self.servicios.append(Asesoria("A01", "Asesoría Python", 120000, "programación en Python"))
-        except ServicioError as error:
-            logger.error("No se pudieron cargar los servicios iniciales: %s", error)
 
     def buscar_servicio(self, codigo: str) -> Servicio:
         for servicio in self.servicios:
@@ -73,8 +63,8 @@ class SistemaFJ:
         except ValueError:
             raise ServicioError("Las horas y el descuento deben ser números")
         costo = servicio.calcular_costo(horas, descuento)
-        logger.info("Costo calculado: %s x %s h (desc. %.0f%%) = $%s",
-                    servicio.codigo, horas, descuento * 100, f"{costo:,.0f}")
+        logger.info("Costo calculado: %s x %s h (desc. %.0f%%) = %s",
+                    servicio.codigo, horas, descuento * 100, pesos(costo))
         return servicio, costo
 
     def buscar_cliente(self, documento: str) -> Cliente:
