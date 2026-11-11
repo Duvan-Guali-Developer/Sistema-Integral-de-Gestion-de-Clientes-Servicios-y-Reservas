@@ -101,7 +101,7 @@ class AlquilerEquipo(Servicio):
 
     def calcular_costo(self, horas, descuento=0):
         self._validar_horas(horas)
-        self._precio_base * horas + self._deposito
+        costo = self._precio_base * horas + self._deposito
         return self._aplicar_descuento(costo, descuento)
 
     def describir(self):
