@@ -10,7 +10,7 @@ Asesoria
 from abc import ABC, abstractmethod
 
 
-class ServicioError(Exception):
+class ServicioError(ValueError):
     """Error propio para problemas con los servicios"""
     pass
 
