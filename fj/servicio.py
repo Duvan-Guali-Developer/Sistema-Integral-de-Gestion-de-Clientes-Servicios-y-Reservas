@@ -21,7 +21,7 @@ class Servicio(ABC):
     def __init__(self, codigo, nombre, precio_base):
         if not codigo or not nombre:
             raise ServicioError("El código y el nombre del servicio son obligatorios")
-        iif precio_base <= 0:
+        if precio_base <= 0:
             raise ServicioError("El precio base debe ser mayor que cero")
         self._codigo = codigo
         self._nombre = nombre
