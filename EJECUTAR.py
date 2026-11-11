@@ -8,7 +8,7 @@ Ejecución:
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from fj import ARCHIVO_LOG, TIPOS_SERVICIO, SistemaFJ, logger
+from fj import ARCHIVO_LOG, TIPOS_SERVICIO, SistemaFJ, logger, pesos
 
 """Tema del Software"""
 
@@ -253,7 +253,7 @@ class AppSoftwareFJ(tk.Tk):
         barra.pack(side="right", fill="y")
         return marco, tabla
 
-    def _campo(self, padre, fila, etiqueta, ancho=28, solo_numeros=False, mayusculas=False):
+    def _campo(self, padre, fila, etiqueta, ancho=28, solo_numeros=False, mayusculas=False, moneda=False):
         """
         Crea una etiqueta con su casilla de texto, solo permite parametros establecidos en desarrollo
         """
@@ -275,6 +275,19 @@ class AppSoftwareFJ(tk.Tk):
                     variable.set(texto.upper())
                     entrada.icursor(posicion)
             variable.trace_add("write", a_mayusculas)
+
+        if moneda:
+            solo_moneda = self.register(lambda texto: all(ch.isdigit() or ch in "$." for ch in texto))
+            entrada.configure(validate="key", validatecommand=(solo_moneda, "%P"))
+
+            def a_pesos(*_):
+                texto = variable.get()
+                digitos = "".join(ch for ch in texto if ch.isdigit()).lstrip("0")
+                formateado = pesos(int(digitos)) if digitos else ""
+                if texto != formateado:
+                    variable.set(formateado)
+                    entrada.after_idle(lambda: (entrada.icursor("end"), entrada.configure(validate="key")))
+            variable.trace_add("write", a_pesos)
 
         return variable
 
@@ -339,7 +352,7 @@ class AppSoftwareFJ(tk.Tk):
 
         self.srv_codigo = self._campo(formulario, 1, "Código", mayusculas=True)
         self.srv_nombre = self._campo(formulario, 2, "Nombre")
-        self.srv_precio = self._campo(formulario, 3, "Precio por hora", solo_numeros=True)
+        self.srv_precio = self._campo(formulario, 3, "Precio por hora", moneda=True)
         self.srv_detalle = self._campo(formulario, 4, "Detalle")
         self.lbl_detalle = formulario.grid_slaves(row=4, column=0)[0]
         self._cambiar_etiqueta_detalle()
@@ -370,7 +383,8 @@ class AppSoftwareFJ(tk.Tk):
     def registrar_servicio(self):
         servicio = self.ejecutar("registrar el servicio", self.sistema.registrar_servicio,
                                  self.srv_tipo.get(), self.srv_codigo.get(), self.srv_nombre.get(),
-                                 self.srv_precio.get(), self.srv_detalle.get())
+                                 "".join(ch for ch in self.srv_precio.get() if ch.isdigit()),
+                                 self.srv_detalle.get())
         if servicio:
             self.mostrar_estado(f"Servicio registrado: {servicio}")
             self._limpiar_servicio()
@@ -390,8 +404,8 @@ class AppSoftwareFJ(tk.Tk):
         if resultado:
             servicio, costo = resultado
             self.ultimo_calculo = costo
-            self.tarjetas["calculo"].config(text=f"${costo:,.0f}")
-            texto = f"{servicio.nombre}: {self.srv_horas.get()} h = ${costo:,.0f}"
+            self.tarjetas["calculo"].config(text=pesos(costo))
+            texto = f"{servicio.nombre}: {self.srv_horas.get()} h = {pesos(costo)}"
             self.mostrar_estado(texto)
             messagebox.showinfo("Costo del servicio", texto, parent=self)
 
@@ -449,13 +463,13 @@ class AppSoftwareFJ(tk.Tk):
         for s in self.sistema.servicios:
             self.tabla_servicios.insert("", "end", values=(
                 s.codigo, s.nombre, nombres_tipo.get(type(s), "-"),
-                f"${s.precio_base:,.0f}", s.describir()))
+                pesos(s.precio_base), s.describir()))
 
         self.tarjetas["clientes"].config(text=str(len(self.sistema.clientes)))
         self.tarjetas["servicios"].config(text=str(len(self.sistema.servicios)))
         self.tarjetas["reservas"].config(text=str(len(getattr(self.sistema, "reservas", []))))
         self.tarjetas["calculo"].config(
-            text="—" if self.ultimo_calculo is None else f"${self.ultimo_calculo:,.0f}")
+            text="—" if self.ultimo_calculo is None else pesos(self.ultimo_calculo))
 
 if __name__ == "__main__":
     AppSoftwareFJ().mainloop()
