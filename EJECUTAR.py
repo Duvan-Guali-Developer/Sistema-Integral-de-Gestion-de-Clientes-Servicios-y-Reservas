@@ -6,6 +6,7 @@ Ejecución:
 """
 
 import tkinter as tk
+from datetime import date
 from tkinter import messagebox, ttk
 
 from fj import ARCHIVO_LOG, TIPOS_SERVICIO, SistemaFJ, logger, pesos
@@ -410,8 +411,98 @@ class AppSoftwareFJ(tk.Tk):
             messagebox.showinfo("Costo del servicio", texto, parent=self)
 
     def _crear_pestana_reservas(self):
-        pestana = ttk.Frame(self.pestanas, padding=10)
+        pestana = ttk.Frame(self.pestanas, padding=(0, 4))
         self.pestanas.add(pestana, text="  Reservas  ")
+
+        lateral = ttk.Frame(pestana)
+        lateral.pack(side="left", fill="y", padx=(0, 10))
+
+        formulario = ttk.LabelFrame(lateral, text="Nueva reserva", padding=10)
+        formulario.pack(fill="x")
+        ttk.Label(formulario, text="Cliente").grid(row=0, column=0, sticky="w", pady=3)
+        self.res_cliente = tk.StringVar()
+        self.res_cliente_combo = ttk.Combobox(formulario, textvariable=self.res_cliente,
+                                              state="readonly", width=26)
+        self.res_cliente_combo.grid(row=0, column=1, sticky="ew", pady=3)
+        ttk.Label(formulario, text="Servicio").grid(row=1, column=0, sticky="w", pady=3)
+        self.res_servicio = tk.StringVar()
+        self.res_servicio_combo = ttk.Combobox(formulario, textvariable=self.res_servicio,
+                                               state="readonly", width=26)
+        self.res_servicio_combo.grid(row=1, column=1, sticky="ew", pady=3)
+        for combo in (self.res_cliente_combo, self.res_servicio_combo):
+            combo.bind("<<ComboboxSelected>>", lambda e: e.widget.selection_clear())
+
+        self.res_fecha = self._campo(formulario, 2, "Fecha (AAAA-MM-DD)")
+        self.res_fecha.set(date.today().isoformat())
+        self.res_horas = self._campo(formulario, 3, "Horas", solo_numeros=True)
+        self.res_descuento = self._campo(formulario, 4, "Descuento %", solo_numeros=True)
+
+        ttk.Button(formulario, text="Crear reserva", style="Accion.TButton",
+                   command=self.crear_reserva).grid(row=5, column=0, columnspan=2,
+                                                    sticky="ew", pady=(12, 4))
+        ttk.Button(formulario, text="Limpiar", command=self._limpiar_reserva)\
+            .grid(row=6, column=0, columnspan=2, sticky="ew")
+
+        gestion = ttk.LabelFrame(lateral, text="Gestionar reserva (seleccione en la tabla)", padding=10)
+        gestion.pack(fill="x", pady=(10, 0))
+        ttk.Button(gestion, text="Confirmar", style="Accion.TButton",
+                   command=self.confirmar_reserva).pack(fill="x", pady=(0, 4))
+        ttk.Button(gestion, text="Cancelar reserva", command=self.cancelar_reserva).pack(fill="x")
+
+        marco, self.tabla_reservas = self._tabla(pestana, [
+            ("codigo", "Código", 60), ("cliente", "Cliente", 150), ("servicio", "Servicio", 140),
+            ("fecha", "Fecha", 90), ("horas", "Horas", 55), ("costo", "Costo", 100),
+            ("estado", "Estado", 95),
+        ])
+        self.tabla_reservas.tag_configure("Confirmada", foreground=COLORES["exito"])
+        self.tabla_reservas.tag_configure("Cancelada", foreground=COLORES["gris_4"])
+        marco.pack(side="left", fill="both", expand=True)
+
+    @staticmethod
+    def _codigo_de(texto):
+        return texto.split(" - ")[0].strip() if texto else ""
+
+    def crear_reserva(self):
+        reserva = self.ejecutar("crear la reserva", self.sistema.crear_reserva,
+                                self._codigo_de(self.res_cliente.get()),
+                                self._codigo_de(self.res_servicio.get()),
+                                self.res_fecha.get(), self.res_horas.get(),
+                                self.res_descuento.get() or "0")
+        if reserva:
+            self.mostrar_estado(f"Reserva creada: {reserva}")
+            self._limpiar_reserva()
+
+    def _limpiar_reserva(self):
+        self.res_cliente.set("")
+        self.res_servicio.set("")
+        self.res_fecha.set(date.today().isoformat())
+        self.res_horas.set("")
+        self.res_descuento.set("")
+
+    def _reserva_seleccionada(self, accion):
+        seleccion = self.tabla_reservas.selection()
+        if not seleccion:
+            messagebox.showwarning(accion, "Seleccione una reserva en la tabla.", parent=self)
+            return None
+        return self.tabla_reservas.item(seleccion[0], "values")[0]
+
+    def confirmar_reserva(self):
+        codigo = self._reserva_seleccionada("Confirmar reserva")
+        if codigo:
+            reserva = self.ejecutar("confirmar la reserva", self.sistema.confirmar_reserva, codigo)
+            if reserva:
+                self.mostrar_estado(f"Reserva confirmada: {reserva}")
+
+    def cancelar_reserva(self):
+        codigo = self._reserva_seleccionada("Cancelar reserva")
+        if not codigo:
+            return
+        if not messagebox.askyesno("Cancelar reserva", f"¿Seguro que desea cancelar la reserva {codigo}?",
+                                   parent=self):
+            return
+        reserva = self.ejecutar("cancelar la reserva", self.sistema.cancelar_reserva, codigo)
+        if reserva:
+            self.mostrar_estado(f"Reserva cancelada: {reserva}")
 
     """"Registros"""""
 
@@ -465,9 +556,18 @@ class AppSoftwareFJ(tk.Tk):
                 s.codigo, s.nombre, nombres_tipo.get(type(s), "-"),
                 pesos(s.precio_base), s.describir()))
 
+        self.tabla_reservas.delete(*self.tabla_reservas.get_children())
+        for r in self.sistema.reservas:
+            self.tabla_reservas.insert("", "end", values=(
+                r.codigo, r.cliente.nombre, r.servicio.nombre, r.fecha.isoformat(),
+                f"{r.horas:g}", pesos(r.costo), r.estado), tags=(r.estado,))
+
+        self.res_cliente_combo["values"] = [f"{c.documento} - {c.nombre}" for c in self.sistema.clientes]
+        self.res_servicio_combo["values"] = [f"{s.codigo} - {s.nombre}" for s in self.sistema.servicios]
+
         self.tarjetas["clientes"].config(text=str(len(self.sistema.clientes)))
         self.tarjetas["servicios"].config(text=str(len(self.sistema.servicios)))
-        self.tarjetas["reservas"].config(text=str(len(getattr(self.sistema, "reservas", []))))
+        self.tarjetas["reservas"].config(text=str(len(self.sistema.reservas)))
         self.tarjetas["calculo"].config(
             text="—" if self.ultimo_calculo is None else pesos(self.ultimo_calculo))
 
