@@ -5,6 +5,7 @@ sistema.py
 
 from .cliente import Cliente
 from .registro import logger
+from .reserva import Reserva, ReservaError
 from .servicio import AlquilerEquipo, Asesoria, ReservaSala, Servicio, ServicioError, pesos
 
 TIPOS_SERVICIO = {
@@ -21,6 +22,7 @@ class SistemaFJ:
         self.empresa = empresa
         self.clientes: list = []
         self.servicios: list = []
+        self.reservas: list = []
         logger.info("=== Sistema %s iniciado ===", empresa)
 
     def buscar_servicio(self, codigo: str) -> Servicio:
@@ -80,3 +82,59 @@ class SistemaFJ:
         self.clientes.append(cliente)
         logger.info("Cliente registrado: %s", cliente.describir())
         return cliente
+
+    def buscar_reserva(self, codigo: str) -> Reserva:
+        for reserva in self.reservas:
+            if reserva.codigo == codigo:
+                return reserva
+        raise ReservaError(f"No existe una reserva con código {codigo}")
+
+    def crear_reserva(self, documento, codigo_servicio, fecha_texto, horas_texto, descuento_texto="0") -> Reserva:
+        if not documento:
+            raise ReservaError("Seleccione un cliente")
+        if not codigo_servicio:
+            raise ReservaError("Seleccione un servicio")
+        if not str(horas_texto).strip().isdigit():
+            raise ReservaError("Las horas deben ser un número entero mayor que cero")
+        if not str(descuento_texto or "0").strip().isdigit():
+            raise ReservaError("El descuento debe ser un número entero")
+        try:
+            cliente = self.buscar_cliente(documento)
+            servicio = self.buscar_servicio(codigo_servicio)
+            fecha = Reserva.leer_fecha(fecha_texto)
+        except ValueError as error:
+            raise ReservaError(f"Datos de la reserva no válidos: {error}") from error
+
+        ocupado = any(r.servicio is servicio and r.fecha == fecha and r.activa() for r in self.reservas)
+        if ocupado:
+            raise ReservaError(f"El servicio {servicio.nombre} ya está reservado el {fecha.isoformat()}")
+
+        horas = int(horas_texto)
+        descuento = int(descuento_texto or 0) / 100
+        codigo = f"R{len(self.reservas) + 1:03d}"
+        reserva = Reserva(codigo, cliente, servicio, fecha, horas, descuento)
+        self.reservas.append(reserva)
+        logger.info("Reserva creada: %s", reserva)
+        return reserva
+
+    def confirmar_reserva(self, codigo: str) -> Reserva:
+        reserva = self.buscar_reserva(codigo)
+        try:
+            reserva.confirmar()
+        except ReservaError as error:
+            logger.warning("No se confirmó la reserva %s: %s", codigo, error)
+            raise
+        else:
+            logger.info("Reserva confirmada: %s", reserva)
+            return reserva
+
+    def cancelar_reserva(self, codigo: str) -> Reserva:
+        reserva = self.buscar_reserva(codigo)
+        try:
+            reserva.cancelar()
+        except ReservaError as error:
+            logger.warning("No se canceló la reserva %s: %s", codigo, error)
+            raise
+        else:
+            logger.info("Reserva cancelada: %s", reserva)
+            return reserva
