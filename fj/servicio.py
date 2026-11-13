@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 
 def pesos(valor):
     """Formatea un valor en pesos colombianos"""
-    return f"${valor:,.0f}".replace(",", ".")
+    return f"${valor:,.0f}".replace(".", ",")
 
 
 class ServicioError(ValueError):
@@ -24,12 +24,14 @@ class Servicio(ABC):
     """Clase abstracta base para todos los servicios"""
 
     def __init__(self, codigo, nombre, precio_base):
-        if not codigo or not nombre:
+        if not str(codigo).strip() or not str(nombre).strip():
             raise ServicioError("El código y el nombre del servicio son obligatorios")
+        if not isinstance(precio_base, (int, float)):
+            raise ServicioError("El precio base debe ser un número")
         if precio_base <= 0:
             raise ServicioError("El precio base debe ser mayor que cero")
-        self._codigo = codigo
-        self._nombre = nombre
+        self._codigo = str(codigo).strip().upper()
+        self._nombre = str(nombre).strip()
         self._precio_base = precio_base
         self._disponible = True
 
