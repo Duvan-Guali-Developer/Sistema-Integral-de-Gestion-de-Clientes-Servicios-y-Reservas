@@ -42,7 +42,10 @@ class AppSoftwareFJ(tk.Tk):
         super().__init__()
         self.sistema = SistemaFJ()
         self.title("Software FJ")
-        self.geometry("1050x650")
+        self.update_idletasks()
+        x = (self.winfo_screenwidth() - 1050) // 2
+        y = (self.winfo_screenheight() - 650) // 2
+        self.geometry(f"1050x650+{x}+{y}")
         self.minsize(900, 560)
 
         self.ultimo_calculo = None
