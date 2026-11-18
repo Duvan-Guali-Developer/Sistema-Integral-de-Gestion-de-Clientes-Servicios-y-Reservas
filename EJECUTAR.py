@@ -161,15 +161,18 @@ class AppSoftwareFJ(tk.Tk):
         marco = tk.Frame(self, bg=c["fondo"], padx=14, pady=10)
         marco.pack(fill="x")
         tk.Frame(self, bg=c["tarjeta_borde"], height=1).pack(fill="x")
-
-        titulo = tk.Frame(marco, bg=c["fondo"])
+       titulo = tk.Frame(marco, bg=c["fondo"])
         titulo.pack(side="right")
-        tk.Label(titulo, text="Software FJ", bg=c["fondo"], fg=c["texto"],
+        fila_titulo = tk.Frame(titulo, bg=c["fondo"])
+        fila_titulo.pack(anchor="e")
+        tk.Label(fila_titulo, text="Software FJ", bg=c["fondo"], fg=c["texto"],
                  font=("Segoe UI", 15, "bold")).pack(side="left")
-        self.lbl_seccion = tk.Label(titulo, text="", bg=c["fondo"], fg=c["gris_3"],
+        self.lbl_seccion = tk.Label(fila_titulo, text="", bg=c["fondo"], fg=c["gris_3"],
                                     font=("Segoe UI", 11))
-        self.lbl_seccion.pack(side="left", padx=(6, 0), pady=(4, 0))
-
+        tk.Label(titulo, text="Desarrollado por:", bg=c["fondo"], fg=c["texto_suave"],
+                 font=("Segoe UI", 8)).pack(anchor="e")
+        tk.Label(titulo, text="Duvan Alexis Guali Castillo - Carlos Andrés Reina Vega",
+                 bg=c["fondo"], fg=c["texto_suave"], font=("Segoe UI", 8)).pack(anchor="e")
         menu = tk.Frame(marco, bg=c["fondo"])
         menu.pack(side="left")
         self.menu_items = {}
