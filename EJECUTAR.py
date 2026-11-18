@@ -161,7 +161,7 @@ class AppSoftwareFJ(tk.Tk):
         marco = tk.Frame(self, bg=c["fondo"], padx=14, pady=10)
         marco.pack(fill="x")
         tk.Frame(self, bg=c["tarjeta_borde"], height=1).pack(fill="x")
-       titulo = tk.Frame(marco, bg=c["fondo"])
+        titulo = tk.Frame(marco, bg=c["fondo"])
         titulo.pack(side="right")
         fila_titulo = tk.Frame(titulo, bg=c["fondo"])
         fila_titulo.pack(anchor="e")
