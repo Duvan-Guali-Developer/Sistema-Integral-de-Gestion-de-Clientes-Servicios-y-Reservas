@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 
 def pesos(valor):
     """Formatea un valor en pesos colombianos"""
-    return f"${valor:,.0f}".replace(",", ",")
+    return f"${valor:,.0f}".replace(".", ",")
 
 
 class ServicioError(ValueError):
